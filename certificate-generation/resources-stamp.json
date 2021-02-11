@@ -15,12 +15,15 @@
             }
         }
     },
-    "variables": {},
+    "variables": {
+        "subdomain" : "[replace(parameters('subdomainName'),'.','')]",
+        "storageAccountName": "[replace(replace(variables('subdomain'), '_', ''),'-','')]"
+    },
     "resources": [
         {
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2020-05-01",
-            "name": "[parameters('subdomainName')]",
+            "name": "[variables('subdomain')]",
             "location": "[parameters('location')]",
             "sku": {
                 "name": "Standard"
@@ -31,8 +34,8 @@
                 "publicIPAllocationMethod": "Static",
                 "idleTimeoutInMinutes": 4,
                 "dnsSettings": {
-                    "domainNameLabel": "[parameters('subdomainName')]",
-                    "fqdn":  "[concat(parameters('subdomainName'),'.',parameters('location'),'.cloudapp.azure.com')]"
+                    "domainNameLabel": "[variables('subdomain')]",
+                    "fqdn":  "[concat(variables('subdomain'),'.',parameters('location'),'.cloudapp.azure.com')]"
                 },
                 "ipTags": []
             }
@@ -40,7 +43,7 @@
         {
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2020-08-01-preview",
-            "name": "[parameters('subdomainName')]",
+            "name": "[variables('storageAccountName')]",
             "location":  "[parameters('location')]",
             "sku": {
                 "name": "Standard_LRS",
@@ -76,9 +79,9 @@
         {
             "type": "Microsoft.Storage/storageAccounts/blobServices",
             "apiVersion": "2020-08-01-preview",
-            "name": "[concat(parameters('subdomainName'), '/default')]",
+            "name": "[concat(variables('storageAccountName'), '/default')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('subdomainName'))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
             ],
             "sku": {
                 "name": "Standard_LRS",
@@ -96,7 +99,7 @@
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2020-05-01",
-            "name": "[parameters('subdomainName')]",
+            "name": "[variables('subdomain')]",
             "location":  "[parameters('location')]",
             "properties": {
                 "addressSpace": {
@@ -123,9 +126,9 @@
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2020-05-01",
-            "name": "[concat(parameters('subdomainName'), '/default')]",
+            "name": "[concat(variables('subdomain'), '/default')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('subdomainName'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('subdomain'))]"
             ],
             "properties": {
                 "addressPrefix": "172.20.0.0/24",
@@ -137,10 +140,10 @@
         {
             "type": "Microsoft.Network/applicationGateways",
             "apiVersion": "2020-05-01",
-            "name": "[parameters('subdomainName')]",
+            "name": "[variables('subdomain')]",
             "location":  "[parameters('location')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subdomainName'),'default')]"
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('subdomain'),'default')]"
             ],
             "properties": {
                 "sku": {
@@ -152,7 +155,7 @@
                         "name": "appGatewayIpConfig",
                         "properties": {
                             "subnet": {
-                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subdomainName'),'default')]"
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('subdomain'),'default')]"
                             }
                         }
                     }
@@ -165,7 +168,7 @@
                         "properties": {
                             "privateIPAllocationMethod": "Dynamic",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIpAddresses',parameters('subdomainName'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses',variables('subdomain'))]"
                             }
                         }
                     }
@@ -180,11 +183,11 @@
                 ],
                 "backendAddressPools": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "backendAddresses": [
                                 {
-                                    "fqdn": "[concat(parameters('subdomainName'),'.blob.core.windows.net')]"
+                                    "fqdn": "[concat(variables('storageAccountName'),'.blob.core.windows.net')]"
                                 }
                             ]
                         }
@@ -192,7 +195,7 @@
                 ],
                 "backendHttpSettingsCollection": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "port": 443,
                             "protocol": "Https",
@@ -200,20 +203,20 @@
                             "pickHostNameFromBackendAddress": true,
                             "requestTimeout": 20,
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), concat('/probes/', parameters('subdomainName')))]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), concat('/probes/', variables('subdomain')))]"
                             }
                         }
                     }
                 ],
                 "httpListeners": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), '/frontendIPConfigurations/appGwPublicFrontendIp')]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), '/frontendIPConfigurations/appGwPublicFrontendIp')]"
                             },
                             "frontendPort": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), '/frontendPorts/port_80')]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), '/frontendPorts/port_80')]"
                             },
                             "protocol": "Http",
                             "hostNames": [],
@@ -224,27 +227,27 @@
                 "urlPathMaps": [],
                 "requestRoutingRules": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "ruleType": "Basic",
                             "httpListener": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), concat('/httpListeners/', parameters('subdomainName')))]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), concat('/httpListeners/', variables('subdomain')))]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), concat('/backendAddressPools/', parameters('subdomainName')))]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), concat('/backendAddressPools/', variables('subdomain')))]"
                             },
                             "backendHttpSettings": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), concat('/backendHttpSettingsCollection/', parameters('subdomainName')))]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), concat('/backendHttpSettingsCollection/', variables('subdomain')))]"
                             },
                             "rewriteRuleSet": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('subdomainName')), concat('/rewriteRuleSets/', parameters('subdomainName')))]"
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('subdomain')), concat('/rewriteRuleSets/', variables('subdomain')))]"
                             }
                         }
                     }
                 ],
                 "probes": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "protocol": "Https",
                             "path": "/verificationdata/test.txt",
@@ -259,7 +262,7 @@
                 ],
                 "rewriteRuleSets": [
                     {
-                        "name": "[parameters('subdomainName')]",
+                        "name": "[variables('subdomain')]",
                         "properties": {
                             "rewriteRules": [
                                 {
@@ -272,7 +275,7 @@
                                             "negate": false
                                         }
                                     ],
-                                    "name": "[parameters('subdomainName')]",
+                                    "name": "[variables('subdomain')]",
                                     "actionSet": {
                                         "requestHeaderConfigurations": [],
                                         "responseHeaderConfigurations": [],
@@ -297,9 +300,13 @@
         }
     ],
     "outputs": {
+        "storageAccountName": {
+            "type": "string",
+            "value": "[variables('storageAccountName')]"
+        },
         "fqdn": {
             "type": "string",
-            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('subdomainName'))).dnsSettings.fqdn]"
+            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('subdomain'))).dnsSettings.fqdn]"
         }
     }
 }
